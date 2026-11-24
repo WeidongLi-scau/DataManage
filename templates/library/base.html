@@ -1,0 +1,7 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}组内资料库{% endblock %}</title><link rel="stylesheet" href="{% static 'library/app.css' %}"><link rel="stylesheet" href="{% static 'library/status.css' %}"></head>
+<body><header class="topbar"><a class="brand" href="{% url 'home' %}"><span class="brand-mark">知</span><span>组内资料库<small>TEAM KNOWLEDGE BASE</small></span></a>
+{% if request.user.is_authenticated %}<nav class="main-nav"><a href="{% url 'home' %}">资料检索</a><a href="{% url 'upload' %}">上传资料</a>{% if request.user.is_staff or request.user.is_superuser %}<a href="{% url 'recycle_bin' %}">回收站</a><a href="{% url 'system_status' %}">系统状态</a><a href="/admin/">系统管理</a>{% endif %}</nav><div class="user-menu"><i></i>{{ request.user.get_full_name|default:request.user.username }}<form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button" type="submit">退出</button></form></div>{% endif %}</header>
+<main class="page-shell">{% if messages %}<div class="messages">{% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main><footer class="footer">课题组内部资料库 <span>·</span> 仅供授权成员使用</footer></body></html>
+

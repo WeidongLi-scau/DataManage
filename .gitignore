@@ -1,0 +1,34 @@
+# Environment files and secrets
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local data and generated files
+.local-data/
+data/
+media/
+staticfiles/
+*.sqlite3
+*.db
+*.sqlite3-*
+*.db-*
+*.log
+
+# Local tool state and credentials
+.codex/
+.aws/
+.ssh/
+
+# Editor and operating system files
+.DS_Store
+.idea/
+.vscode/

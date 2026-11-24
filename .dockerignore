@@ -1,0 +1,14 @@
+.git
+.env*
+__pycache__
+*.py[cod]
+*.sqlite3
+data
+media
+staticfiles
+.venv
+.local-data
+.codex
+.aws
+.ssh
+
