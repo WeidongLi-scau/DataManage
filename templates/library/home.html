@@ -1,8 +1,90 @@
-{% extends 'library/base.html' %}{% block title %}资料检索 · 组内资料库{% endblock %}{% block content %}
-<section class="hero-row"><div><div class="eyebrow">YOUR TEAM LIBRARY</div><h1>资料，都在这里。</h1><p>搜索文档内容、标题或标签，快速找到需要的资料。</p></div><a class="button primary" href="{% url 'upload' %}">＋ 上传资料</a></section>
-<form class="search-panel" method="get"><div class="search-box"><span class="search-symbol">⌕</span><input type="search" name="q" value="{{ query }}" placeholder="搜索标题、文件名、说明、标签或文档正文…"><button type="submit">搜索</button></div><div class="filter-row"><label>文件类型<select name="type"><option value="">所有类型</option>{% for ext in extensions %}<option value="{{ ext|slice:'1:' }}" {% if type_filter == ext|slice:'1:' %}selected{% endif %}>{{ ext|upper }}</option>{% endfor %}</select></label><label>项目 / 课题<select name="group"><option value="">全部可访问分组</option>{% for group in groups %}<option value="{{ group.id }}" {% if group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select></label><label>上传者<select name="uploader"><option value="">所有上传者</option>{% for uploader in uploaders %}<option value="{{ uploader.uploaded_by_id }}" {% if uploader_filter == uploader.uploaded_by_id|stringformat:'s' %}selected{% endif %}>{{ uploader.uploaded_by__first_name }} {{ uploader.uploaded_by__last_name }}{% if not uploader.uploaded_by__first_name and not uploader.uploaded_by__last_name %}{{ uploader.uploaded_by__username }}{% endif %}</option>{% endfor %}</select></label><label>分类<input name="category" value="{{ category_filter }}" placeholder="分类名称"></label><label>上传日期<input type="date" name="after" value="{{ uploaded_after }}" aria-label="起始日期"></label><label>至<input type="date" name="before" value="{{ uploaded_before }}" aria-label="结束日期"></label>{% if query or type_filter or group_filter or category_filter or uploader_filter or uploaded_after or uploaded_before %}<a class="clear-filters" href="{% url 'home' %}">清除筛选</a>{% endif %}</div></form>
-<section class="results-head"><div><h2>资料列表</h2><span class="result-count">共 {{ page_obj.paginator.count }} 条</span></div><span class="secure-label"><i></i>仅显示你有权访问的资料</span></section>
-{% if page_obj.object_list %}<div class="material-list">{% for material in page_obj.object_list %}<article class="material-card"><div class="file-badge {% if material.extension == '.pdf' %}pdf{% elif material.extension == '.docx' %}word{% elif material.extension == '.png' %}image{% endif %}">{% if material.extension == '.pdf' %}PDF{% elif material.extension == '.docx' %}DOC{% elif material.extension == '.png' %}IMG{% else %}FILE{% endif %}</div><div class="material-main"><a class="material-title" href="{% url 'material_detail' material.id %}">{{ material.title }}</a><p class="material-description">{{ material.description|default:material.original_name|truncatechars:150 }}</p><div class="meta-line"><span>{{ material.uploaded_by.get_full_name|default:material.uploaded_by.username }}</span><span>{{ material.created_at|date:'Y-m-d' }}</span><span>{{ material.current_version.file_size|filesizeformat }}</span><span class="processing-pill {{ material.processing_status }}">{{ material.current_version.get_status_display|default:'处理中' }}</span></div><div class="tag-row">{% for group in material.groups.all %}<span class="tag group-tag">{{ group.name }}</span>{% endfor %}{% if material.category %}<span class="tag">{{ material.category }}</span>{% endif %}{% if material.tags %}<span class="tag">{{ material.tags }}</span>{% endif %}</div></div><div class="card-actions"><a href="{% url 'material_detail' material.id %}">查看详情 ↗</a></div></article>{% endfor %}</div>
-{% else %}<div class="empty-state"><div class="empty-icon">⌕</div><h3>{% if query %}没有找到匹配资料{% else %}资料库还空着{% endif %}</h3><p>{% if query %}试试缩短关键词，或调整文件类型、项目筛选。{% else %}上传第一份资料，之后就可以在这里检索。{% endif %}</p>{% if not query %}<a class="button secondary" href="{% url 'upload' %}">上传一份资料</a>{% endif %}</div>{% endif %}
-{% if page_obj.paginator.num_pages > 1 %}<div class="pagination">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&type={{ type_filter|urlencode }}&group={{ group_filter|urlencode }}&category={{ category_filter|urlencode }}&uploader={{ uploader_filter|urlencode }}&after={{ uploaded_after|urlencode }}&before={{ uploaded_before|urlencode }}&page={{ page_obj.previous_page_number }}">← 上一页</a>{% endif %}<span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&type={{ type_filter|urlencode }}&group={{ group_filter|urlencode }}&category={{ category_filter|urlencode }}&uploader={{ uploader_filter|urlencode }}&after={{ uploaded_after|urlencode }}&before={{ uploaded_before|urlencode }}&page={{ page_obj.next_page_number }}">下一页 →</a>{% endif %}</div>{% endif %}{% endblock %}
+{% extends 'library/base.html' %}{% load static %}
+{% block title %}资料检索 · 组内资料库{% endblock %}
+{% block content %}
+<section class="page-heading library-heading">
+  <div><h1>资料检索</h1><p>按内容、项目和成果信息找到需要的资料。</p></div>
+  <a class="button primary" href="{% url 'upload' %}">上传资料</a>
+</section>
 
+<search class="search-surface">
+  <form class="search-form" method="get" action="{% url 'home' %}">
+    <div class="search-box">
+      <label class="visually-hidden" for="search-query">搜索资料</label>
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg>
+      <input id="search-query" type="search" name="q" value="{{ query }}" placeholder="搜索标题、文件名、说明、作者、期刊或正文" autocomplete="off">
+      <button class="button primary" type="submit">搜索</button>
+    </div>
+    <fieldset class="filter-row">
+      <legend class="visually-hidden">常用筛选</legend>
+      <label>项目 / 课题
+        <select name="group"><option value="">全部可访问分组</option>{% for group in groups %}<option value="{{ group.id }}" {% if group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select>
+      </label>
+      <label>资料集合
+        <select name="collection"><option value="">全部集合</option>{% for collection in collections %}<option value="{{ collection.id }}" {% if collection_filter == collection.id|stringformat:'s' %}selected{% endif %}>{{ collection.name }}</option>{% endfor %}</select>
+      </label>
+      <label>记录类型
+        <select name="record_type"><option value="">全部类型</option><option value="material" {% if record_type_filter == 'material' %}selected{% endif %}>一般资料</option><option value="publication" {% if record_type_filter == 'publication' %}selected{% endif %}>已发表成果</option></select>
+      </label>
+      <label>分类
+        <select name="category"><option value="">全部分类</option>{% for category in categories %}<option value="{{ category.id }}" {% if category_filter == category.id|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select>
+      </label>
+      <label>文件类型
+        <select name="type"><option value="">所有类型</option>{% for ext in extensions %}<option value="{{ ext|slice:'1:' }}" {% if type_filter == ext|slice:'1:' %}selected{% endif %}>{{ ext|upper }}</option>{% endfor %}</select>
+      </label>
+      <label>排序
+        <select name="sort"><option value="-created_at" {% if sort_filter == '-created_at' %}selected{% endif %}>最新上传</option><option value="created_at" {% if sort_filter == 'created_at' %}selected{% endif %}>最早上传</option><option value="-document_date" {% if sort_filter == '-document_date' %}selected{% endif %}>资料日期较新</option><option value="document_date" {% if sort_filter == 'document_date' %}selected{% endif %}>资料日期较早</option></select>
+      </label>
+    </fieldset>
+    <div class="filter-footer">
+    <details class="advanced-filters" {% if uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}open{% endif %}>
+      <summary>更多筛选{% if uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<span class="filter-active">已应用</span>{% endif %}</summary>
+      <div class="advanced-filter-fields">
+        <label>上传者<select name="uploader"><option value="">所有上传者</option>{% for uploader in uploaders %}<option value="{{ uploader.uploaded_by_id }}" {% if uploader_filter == uploader.uploaded_by_id|stringformat:'s' %}selected{% endif %}>{{ uploader.uploaded_by__first_name }} {{ uploader.uploaded_by__last_name }}{% if not uploader.uploaded_by__first_name and not uploader.uploaded_by__last_name %}{{ uploader.uploaded_by__username }}{% endif %}</option>{% endfor %}</select></label>
+        <label>资料日期从<input type="date" name="document_after" value="{{ document_after }}"></label>
+        <label>资料日期至<input type="date" name="document_before" value="{{ document_before }}"></label>
+        <label>上传日期从<input type="date" name="after" value="{{ uploaded_after }}"></label>
+        <label>上传日期至<input type="date" name="before" value="{{ uploaded_before }}"></label>
+        <label>成果作者<input type="search" name="author" value="{{ author_filter }}"></label>
+        <label>期刊 / 来源<input type="search" name="journal" value="{{ journal_filter }}"></label>
+        <label>发表年份<input type="text" inputmode="numeric" name="year" value="{{ year_filter }}" maxlength="4"></label>
+        <label>卷<input type="search" name="volume" value="{{ volume_filter }}"></label>
+        <label>期<input type="search" name="issue" value="{{ issue_filter }}"></label>
+        <label>DOI<input type="search" name="doi" value="{{ doi_filter }}"></label>
+      </div>
+    </details>
+    <div class="search-actions"><button class="button secondary" type="submit">应用筛选</button>{% if query or type_filter or group_filter or category_filter or uploader_filter or uploaded_after or uploaded_before or collection_filter or record_type_filter or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<a class="clear-filters" href="{% url 'home' %}">清除条件</a>{% endif %}</div>
+    </div>
+  </form>
+</search>
+
+<section class="results-section" aria-labelledby="results-heading">
+  <div class="results-head"><div><h2 id="results-heading">资料列表</h2><span class="result-count">{{ page_obj.paginator.count }} 项资料</span></div><span class="secure-label"><i aria-hidden="true"></i>仅显示你有权访问的资料</span></div>
+  {% if page_obj.object_list %}
+    <form method="post" action="{% url 'bulk_materials' %}" class="bulk-select-form">{% csrf_token %}
+    <div class="bulk-selection-toolbar"><label><input type="checkbox" data-select-page> 选择本页资料</label><span data-selection-count role="status">已选 0 项</span><button type="submit" class="button secondary">整理或下载所选资料</button></div>
+    <div class="material-list">
+      {% for material in page_obj.object_list %}
+        <article class="material-card">
+          <label class="material-select"><input type="checkbox" name="materials" value="{{ material.pk }}"><span class="visually-hidden">选择 {{ material.title }}</span></label>
+          <div class="file-badge {% if material.extension == '.pdf' %}pdf{% elif material.extension == '.docx' %}word{% elif material.extension == '.png' %}image{% endif %}" aria-hidden="true">{% if material.extension == '.pdf' %}PDF{% elif material.extension == '.docx' %}DOC{% elif material.extension == '.png' %}IMG{% else %}FILE{% endif %}</div>
+          <div class="material-main">
+            <div class="material-title-row"><a class="material-title" href="{% url 'material_detail' material.id %}">{{ material.title }}</a><span class="record-type-label {% if material.record_type == 'publication' %}publication{% endif %}">{% if material.record_type == 'publication' %}已发表成果{% else %}一般资料{% endif %}</span></div>
+            <p class="material-description">{{ material.description|default:material.original_name|truncatechars:150 }}</p>
+            <div class="meta-line">
+              {% if material.record_type == 'publication' and material.publication.publication_date %}<span>发表 {{ material.publication.publication_date|date:'Y-m-d' }}</span>{% elif material.record_type == 'publication' and material.publication.publication_year %}<span>发表 {{ material.publication.publication_year }}</span>{% elif material.document_date %}<span>资料日期 {{ material.document_date|date:'Y-m-d' }}</span>{% endif %}
+              <span>{{ material.uploaded_by.get_full_name|default:material.uploaded_by.username }}</span><span>上传 {{ material.created_at|date:'Y-m-d' }}</span><span>{{ material.current_version.file_size|filesizeformat }}</span><span class="processing-pill {{ material.processing_status }}">{{ material.current_version.get_status_display|default:'处理中' }}</span>
+            </div>
+            <div class="tag-row">{% for group in material.groups.all %}<span class="tag group-tag">{{ group.name }}</span>{% endfor %}{% for collection in material.collections.all %}<span class="tag">{{ collection.name }}</span>{% endfor %}{% if material.category %}<span class="tag">{{ material.category.name }}</span>{% endif %}{% if material.tags %}<span class="tag">{{ material.tags }}</span>{% endif %}{% if material.record_type == 'publication' and material.publication.displayed_journal %}<span class="tag journal-tag">{{ material.publication.displayed_journal }}</span>{% endif %}</div>
+          </div>
+          <a class="card-action" href="{% url 'material_detail' material.id %}">查看详情<span aria-hidden="true">→</span></a>
+        </article>
+      {% endfor %}
+    </div>
+    </form>
+  {% else %}
+    <div class="empty-state"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="21" cy="21" r="12"/><path d="m30 30 9 9"/></svg></div><h3>{% if query %}没有找到匹配资料{% else %}资料库还没有内容{% endif %}</h3><p>{% if query %}调整关键词或清除部分筛选，再试一次。{% else %}上传第一份资料，之后就可以在这里检索。{% endif %}</p>{% if query %}<a class="button secondary" href="{% url 'home' %}">清除搜索条件</a>{% else %}<a class="button secondary" href="{% url 'upload' %}">上传第一份资料</a>{% endif %}</div>
+  {% endif %}
+  {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="资料列表分页">{% if page_obj.has_previous %}<a href="?{{ pagination_query }}&page={{ page_obj.previous_page_number }}">← 上一页</a>{% endif %}<span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>{% if page_obj.has_next %}<a href="?{{ pagination_query }}&page={{ page_obj.next_page_number }}">下一页 →</a>{% endif %}</nav>{% endif %}
+</section>
+<script src="{% static 'library/workflows.js' %}" defer></script>
+{% endblock %}

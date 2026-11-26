@@ -1,0 +1,3 @@
+{% extends 'library/base.html' %}
+{% block title %}我的上传 · 组内资料库{% endblock %}
+{% block content %}<div class="page-heading"><div><h1>我的上传</h1><p>查看每次上传的文件数量和独立处理结果。</p></div><a class="button primary" href="{% url 'upload' %}">上传资料</a></div><section class="manage-panel"><h2>上传批次</h2><ul class="workflow-material-list">{% for batch in page_obj %}<li><div><a href="{% url 'upload_batch_detail' batch.pk %}">{{ batch.title }}</a><small>{{ batch.created_at|date:'Y-m-d H:i' }} · {{ batch.item_count }} 个文件</small></div><a class="table-action" href="{% url 'upload_batch_detail' batch.pk %}">查看结果<span class="visually-hidden"> {{ batch.pk }}</span></a></li>{% empty %}<li>还没有上传批次。</li>{% endfor %}</ul>{% include 'library/simple_pagination.html' %}</section>{% endblock %}

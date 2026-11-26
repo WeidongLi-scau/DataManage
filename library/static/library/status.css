@@ -1,1 +1,14 @@
-.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.status-card,.status-note{background:#fff;border:1px solid #e8ece8;border-radius:12px;padding:20px 22px;box-shadow:0 10px 30px rgba(29,55,44,.06)}.status-card small,.status-card span{display:block;color:#89958e;font-size:11px}.status-card strong{display:block;font-size:25px;margin:7px 0 5px}.status-card .status-word{font-size:20px}.status-word.ok{color:#36845e}.status-word.bad{color:#b64f49}.meter{height:5px;background:#edf1ed;border-radius:9px;margin-top:14px;overflow:hidden}.meter i{display:block;height:100%;background:#5c9d78;border-radius:9px}.status-note{margin-top:14px}.status-note h2{font-size:15px;margin:0 0 9px}.status-note ul{margin:0;padding-left:19px;color:#758079;font-size:12px;line-height:1.9}.status-note code{display:inline-block;margin-top:10px;background:#f2f5f2;border-radius:5px;padding:7px 10px;color:#557262;font-size:11px}@media(max-width:600px){.status-grid{grid-template-columns:1fr}}
+.status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.status-card, .status-note { padding: 19px 21px; }
+.status-card small, .status-card span { display: block; color: var(--muted); font-size: 12px; }
+.status-card strong { display: block; margin-block: 7px 4px; color: var(--ink); font-size: 24px; font-variant-numeric: tabular-nums; }
+.status-card .status-word { font-size: 19px; }
+.status-word.ok { color: #286143; }
+.status-word.bad { color: var(--red); }
+.meter { height: 6px; margin-block-start: 13px; overflow: hidden; border-radius: 999px; background: #e9efeb; }
+.meter i { display: block; height: 100%; border-radius: inherit; background: #4b8b62; }
+.status-note { margin-block-start: 13px; }
+.status-note h2 { margin: 0 0 8px; font-size: 15px; }
+.status-note ul { margin: 0; padding-inline-start: 19px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.status-note code { display: inline-block; margin-block-start: 10px; padding: 7px 10px; border-radius: 6px; background: #f1f5f2; color: var(--ink-soft); font-size: 11px; }
+@media (max-width: 600px) { .status-grid { grid-template-columns: 1fr; } }

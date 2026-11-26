@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import ArchiveGroup, AuditLog, MaterialCategory
+from .models import ArchiveGroup, AuditLog, Journal, MaterialCategory, MaterialCollection, MaterialVersion, PublicationMetadata, StoredFile, UploadBatch
 
 
 @admin.register(ArchiveGroup)
@@ -10,7 +10,7 @@ class ArchiveGroupAdmin(admin.ModelAdmin):
     list_display = ("name", "is_public", "is_active", "member_count", "created_at")
     list_filter = ("is_public", "is_active")
     search_fields = ("name", "description", "members__username")
-    filter_horizontal = ("members",)
+    filter_horizontal = ("members", "managers")
 
     def get_fields(self, request, obj=None):
         fields = ["name", "description", "members", "is_active"]
@@ -106,4 +106,61 @@ class ManagedUserAdmin(DjangoUserAdmin):
 
 admin.site.unregister(get_user_model())
 admin.site.register(get_user_model(), ManagedUserAdmin)
+
+
+@admin.register(MaterialCollection)
+class MaterialCollectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "created_by", "created_at")
+    list_filter = ("is_active", "groups")
+    search_fields = ("name", "description")
+    filter_horizontal = ("groups",)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Journal)
+class JournalAdmin(admin.ModelAdmin):
+    list_display = ("name", "abbreviation", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "abbreviation")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PublicationMetadata)
+class PublicationMetadataAdmin(admin.ModelAdmin):
+    list_display = ("material", "displayed_journal", "publication_year", "doi")
+    search_fields = ("material__title", "authors", "journal_name", "journal__name", "doi")
+    readonly_fields = ("material",)
+
+    @admin.display(description="期刊 / 来源")
+    def displayed_journal(self, obj):
+        return obj.displayed_journal
+
+
+@admin.register(UploadBatch)
+class UploadBatchAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "created_by", "created_at")
+    readonly_fields = ("created_by", "created_at")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StoredFile)
+class StoredFileAdmin(admin.ModelAdmin):
+    list_display = ("sha256", "file_size", "content_type", "created_at")
+    search_fields = ("sha256",)
+    readonly_fields = ("sha256", "file", "file_size", "content_type", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 

@@ -1,0 +1,20 @@
+{% extends 'library/base.html' %}
+{% block title %}成员账户 · 系统管理{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>成员账户</h1><p>创建成员账号并分配可访问的项目/课题组。</p></div><div class="heading-actions"><a class="button ghost" href="{% url 'management_home' %}">返回管理首页</a><a class="button secondary" href="{% url 'home' %}">返回资料库</a></div></div>
+{% if credentials %}
+<section class="manage-panel account-credentials" aria-labelledby="credentials-heading">
+<h2 id="credentials-heading">成员账户已创建</h2>
+<p>请保存以下账号密码并交给对应成员。初始密码仅在本次创建结果中展示，离开后无法再次查看。</p>
+<label for="initial-credentials">账号与初始密码（可选中复制）</label>
+<textarea id="initial-credentials" readonly rows="3" spellcheck="false" autocomplete="off">用户名：{{ credentials.username }}
+初始密码：{{ credentials.password }}
+首次登录后，请先修改密码再使用资料库。</textarea>
+<p class="muted">系统仅保存密码摘要；姓名、邮箱可稍后在“编辑”中补充。</p>
+<a class="button primary" href="{% url 'manage_users' %}">已保存，返回成员管理</a>
+</section>
+{% else %}
+<div class="manage-columns"><section class="manage-panel"><h2>{% if editing %}编辑成员账户{% else %}创建成员{% endif %}</h2>{% if not editing %}<p class="muted">填写用户名并分配项目组即可。系统会生成随机初始密码，成员首次登录必须修改。</p>{% endif %}<form method="post" action="{% if editing %}{% url 'edit_managed_user' editing.pk %}{% else %}{% url 'manage_users' %}{% endif %}" class="manage-form" aria-labelledby="user-form-title">{% csrf_token %}<span id="user-form-title" class="visually-hidden">成员账户表单</span>{% include 'library/manage_form_fields.html' %}<div class="form-actions"><button class="button primary" type="submit">{% if editing %}保存账户{% else %}创建账户并生成密码{% endif %}</button></div></form></section>
+<section class="manage-panel"><h2>账户列表</h2><div class="table-wrap" tabindex="0" role="region" aria-label="成员账户列表，可横向滚动"><table class="manage-table"><caption>已创建账户</caption><thead><tr><th scope="col">用户名</th><th scope="col">姓名</th><th scope="col">角色</th><th scope="col">状态</th><th scope="col">可访问分组</th><th scope="col">操作</th></tr></thead><tbody>{% for user in users %}<tr><th scope="row">{{ user.username }}</th><td>{{ user.get_full_name|default:'—' }}</td><td>{% if user.is_superuser %}超级管理员{% elif user.is_staff %}管理员{% else %}成员{% endif %}</td><td>{% if user.is_active %}启用{% else %}停用{% endif %}</td><td>{% for group in user.archive_groups.all %}{{ group.name }}{% if not forloop.last %}、{% endif %}{% empty %}未分配{% endfor %}</td><td><a class="table-action" href="{% url 'edit_managed_user' user.pk %}">编辑</a> {% if user.pk != request.user.pk %}<a class="table-action" href="{% url 'reset_member_password' user.pk %}">重置密码</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="6">暂无账户。</td></tr>{% endfor %}</tbody></table></div><p class="muted">重置密码会生成新的初始密码，成员下次登录必须修改。</p><a class="table-action" href="/admin/auth/user/">打开高级账户管理</a></section></div>
+{% endif %}
+{% endblock %}

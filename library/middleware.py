@@ -5,9 +5,11 @@ class PasswordChangeRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        from .models import UserAccountState
+
         if (
             request.user.is_authenticated
-            and request.session.get("must_change_password")
+            and (request.session.get("must_change_password") or UserAccountState.objects.filter(user=request.user, must_change_password=True).exists())
             and request.path not in self.allowed_paths
         ):
             from django.shortcuts import redirect

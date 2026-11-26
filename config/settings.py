@@ -111,12 +111,17 @@ SECURE_REFERRER_POLICY = "same-origin"
 
 MAX_UPLOAD_SIZE = int(os.environ.get("MAX_UPLOAD_SIZE", 100 * 1024 * 1024))
 MAX_BATCH_UPLOAD_SIZE = int(os.environ.get("MAX_BATCH_UPLOAD_SIZE", 1024 * 1024 * 1024))
-MEILI_URL = os.environ.get("MEILI_URL", "http://meilisearch:7700")
+MEILI_ENABLED = os.environ.get("MEILI_ENABLED", "1" if os.environ.get("DB_ENGINE") == "postgres" else "0") == "1"
+MEILI_URL = os.environ.get("MEILI_URL", "http://127.0.0.1:7700")
 MEILI_MASTER_KEY = os.environ.get("MEILI_MASTER_KEY", "")
 MEILI_INDEX = os.environ.get("MEILI_INDEX", "teaminfo_documents")
+DEV_SYNC_FILE_PROCESSING = os.environ.get(
+    "DEV_SYNC_FILE_PROCESSING",
+    "0" if os.environ.get("DB_ENGINE") == "postgres" else "1",
+) == "1"
 RQ_QUEUES = {
     "default": {
-        "URL": os.environ.get("REDIS_URL", "redis://redis:6379/0"),
+        "URL": os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0"),
         "DEFAULT_TIMEOUT": 600,
     }
 }

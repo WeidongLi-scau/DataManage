@@ -18,7 +18,11 @@ def _headers():
 
 
 def index_version(version):
+    if not settings.MEILI_ENABLED:
+        return
     material = version.material
+    if not Material.objects.filter(pk=material.pk, current_version_id=version.pk).exists():
+        return
     document = search_document(version)
     url = f"{settings.MEILI_URL}/indexes/{settings.MEILI_INDEX}/documents?primaryKey=id"
     try:
@@ -31,19 +35,37 @@ def index_version(version):
 
 def search_document(version):
     material = version.material
-    return {
+    document = {
         "id": material.pk,
         "title": material.title,
         "description": material.description,
         "tags": material.tags,
-        "category": material.category,
+        "category_id": material.category_id,
+        "category": material.category.name if material.category_id else "",
         "original_name": version.original_name,
         "extracted_text": version.extracted_text[:1_000_000],
         "group_ids": list(material.groups.values_list("id", flat=True)),
+        "collection_ids": list(material.collections.values_list("id", flat=True)),
+        "record_type": material.record_type,
+        "document_date": material.document_date.isoformat() if material.document_date else "",
         "is_deleted": material.deleted_at is not None,
-        "uploaded_at": material.created_at.isoformat(),
+        "uploaded_at": int(material.created_at.timestamp()),
         "extension": version.extension,
     }
+    if material.record_type == Material.RecordType.PUBLICATION:
+        publication = getattr(material, "publication", None)
+        if publication:
+            document.update({
+                "authors": publication.authors,
+                "journal_name": publication.displayed_journal,
+                "publication_year": publication.publication_year or (publication.publication_date.year if publication.publication_date else None),
+                "volume": publication.volume,
+                "issue": publication.issue,
+                "pages": publication.pages,
+                "doi": publication.doi,
+                "bibtex_raw": publication.bibtex_raw,
+            })
+    return document
 
 
 def update_index_settings():
@@ -52,10 +74,10 @@ def update_index_settings():
         response = requests.patch(
             url,
             json={
-                "searchableAttributes": ["title", "original_name", "description", "tags", "category", "extracted_text"],
-                "filterableAttributes": ["group_ids", "is_deleted", "extension", "category"],
-                "sortableAttributes": ["uploaded_at", "title"],
-                "localizedAttributes": [{"locales": ["cmn"], "attributePatterns": ["title", "description", "tags", "category", "extracted_text"]}],
+                "searchableAttributes": ["title", "original_name", "description", "tags", "category", "extracted_text", "authors", "journal_name", "volume", "issue", "pages", "doi", "bibtex_raw", "publication_year"],
+                "filterableAttributes": ["group_ids", "collection_ids", "is_deleted", "extension", "category_id", "record_type", "document_date", "publication_year"],
+                "sortableAttributes": ["uploaded_at", "document_date", "publication_year", "title"],
+                "localizedAttributes": [{"locales": ["cmn"], "attributePatterns": ["title", "description", "tags", "category", "extracted_text", "authors", "journal_name"]}],
                 "pagination": {"maxTotalHits": 5000},
             },
             headers=_headers(),
@@ -113,7 +135,7 @@ def search_materials(user, query, limit=2500):
     if not query:
         return queryset
 
-    if allowed_ids:
+    if allowed_ids and settings.MEILI_ENABLED:
         url = f"{settings.MEILI_URL}/indexes/{settings.MEILI_INDEX}/search"
         try:
             response = requests.post(
@@ -137,7 +159,17 @@ def search_materials(user, query, limit=2500):
         Q(title__icontains=query)
         | Q(description__icontains=query)
         | Q(tags__icontains=query)
+        | Q(category__name__icontains=query)
         | Q(current_version__original_name__icontains=query)
         | Q(current_version__extracted_text__icontains=query)
+        | Q(publication__authors__icontains=query)
+        | Q(publication__journal__name__icontains=query)
+        | Q(publication__journal_name__icontains=query)
+        | Q(publication__volume__icontains=query)
+        | Q(publication__issue__icontains=query)
+        | Q(publication__pages__icontains=query)
+        | Q(publication__doi__icontains=query)
+        | Q(publication__bibtex_raw__icontains=query)
+        | (Q(publication__publication_year=int(query)) if query.isdigit() else Q(pk__in=[]))
     ).distinct()
 
