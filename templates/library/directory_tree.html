@@ -1,0 +1,1 @@
+<ul>{% for node in tree_nodes %}<li><a href="{% url 'folder_browse' group.pk node.folder.pk %}" {% if folder.pk == node.folder.pk %}aria-current="page"{% endif %}>{{ node.folder.name }}</a>{% if node.children %}{% include 'library/directory_tree.html' with tree_nodes=node.children %}{% endif %}</li>{% endfor %}</ul>

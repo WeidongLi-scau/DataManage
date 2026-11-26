@@ -1,4 +1,4 @@
-{% extends 'library/base.html' %}{% load static %}
+{% extends 'library/base.html' %}{% load static directory_tags %}
 {% block title %}资料检索 · 组内资料库{% endblock %}
 {% block content %}
 <section class="page-heading library-heading">
@@ -68,6 +68,7 @@
           <label class="material-select"><input type="checkbox" name="materials" value="{{ material.pk }}"><span class="visually-hidden">选择 {{ material.title }}</span></label>
           <div class="file-badge {% if material.extension == '.pdf' %}pdf{% elif material.extension == '.docx' %}word{% elif material.extension == '.png' %}image{% endif %}" aria-hidden="true">{% if material.extension == '.pdf' %}PDF{% elif material.extension == '.docx' %}DOC{% elif material.extension == '.png' %}IMG{% else %}FILE{% endif %}</div>
           <div class="material-main">
+            {% archive_location material as location %}{% if location %}<p class="archive-path"><a href="{% url 'folder_browse' location.folder.group_id location.folder.pk %}">{{ location.path }} · 打开所在文件夹</a></p>{% endif %}
             <div class="material-title-row"><a class="material-title" href="{% url 'material_detail' material.id %}">{{ material.title }}</a><span class="record-type-label {% if material.record_type == 'publication' %}publication{% endif %}">{% if material.record_type == 'publication' %}已发表成果{% else %}一般资料{% endif %}</span></div>
             <p class="material-description">{{ material.description|default:material.original_name|truncatechars:150 }}</p>
             <div class="meta-line">

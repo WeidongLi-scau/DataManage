@@ -100,12 +100,40 @@ class StoredFile(models.Model):
         return self.sha256
 
 
+class Folder(models.Model):
+    group = models.ForeignKey(ArchiveGroup, on_delete=models.PROTECT, related_name="folders")
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="children")
+    name = models.CharField(max_length=160)
+    normalized_name = models.CharField(max_length=160)
+    description = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deletion_batch = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["group", "parent", "normalized_name"], condition=models.Q(deleted_at__isnull=True, parent__isnull=False), name="unique_active_child_folder"),
+            models.UniqueConstraint(fields=["group", "normalized_name"], condition=models.Q(deleted_at__isnull=True, parent__isnull=True), name="unique_active_root_folder"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = self.name.strip().casefold()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
 class Material(models.Model):
     class RecordType(models.TextChoices):
         MATERIAL = "material", "一般资料"
         PUBLICATION = "publication", "已发表成果"
 
     title = models.CharField(max_length=255)
+    folder = models.ForeignKey(Folder, null=True, blank=True, on_delete=models.PROTECT, related_name="materials")
+    folder_deletion_batch = models.UUIDField(null=True, blank=True)
     description = models.TextField(blank=True)
     category = models.ForeignKey(MaterialCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="materials")
     tags = models.CharField(max_length=500, blank=True, help_text="多个标签用逗号分隔")

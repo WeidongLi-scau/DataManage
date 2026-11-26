@@ -57,6 +57,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const dropZone = document.querySelector("#upload-drop-zone");
   const selectionError = document.querySelector("#file-selection-error");
   const clearFiles = document.querySelector("#clear-files");
+  const directoryInput = document.querySelector("#id_directory_files");
+  const pathInput = document.querySelector("#relative-paths");
+  const folderSelect = document.querySelector("#upload-folder");
+  const syncFolderGroup = () => {
+    const groupId = folderSelect?.selectedOptions[0]?.dataset.group;
+    if (!groupId) return;
+    document.querySelectorAll('[name="groups"]').forEach((input) => { input.checked = input.value === groupId; input.dispatchEvent(new Event("change")); });
+  };
+  folderSelect?.addEventListener("change", syncFolderGroup);
   const formatSize = (size) => size < 1024 ? `${size} B` : size < 1048576 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1048576).toFixed(1)} MB`;
   const fitTitle = (input) => {
     input.style.height = "auto";
@@ -78,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fileInput.classList.add("file-picker-enhanced");
     document.querySelector("[data-file-picker]").hidden = false;
     document.querySelector("[data-drop-hint]").hidden = false;
+    if (directoryInput && "webkitdirectory" in directoryInput) document.querySelector("[data-directory-picker]").hidden = false;
   }
 
   const syncQueue = () => {
@@ -98,18 +108,19 @@ document.addEventListener("DOMContentLoaded", () => {
     clearFiles.hidden = !queue.length || !submittedFiles;
     if (titleField) titleField.hidden = queue.length > 0;
     if (queue.length === 1 && commonTitle) commonTitle.value = queue[0].title.value;
+    if (pathInput) pathInput.value = JSON.stringify(queue.map((entry) => entry.path || entry.file.name));
   };
 
   let nextFileId = 0;
-  const addFiles = (files) => {
+  const addFiles = (files, paths = []) => {
     const rejected = [];
     const categories = JSON.parse(document.querySelector("#category-options")?.textContent || "[]");
-    Array.from(files).forEach((file) => {
+    Array.from(files).forEach((file, fileIndex) => {
       if (file.size > Number(dropZone.dataset.maxFileSize) * 1048576) {
         rejected.push(file.name);
         return;
       }
-      const entry = { file };
+      const entry = { file, path: paths[fileIndex] || file.webkitRelativePath || file.name };
       const row = document.createElement("article");
       row.className = "file-metadata-row";
       entry.row = row;
@@ -117,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
       header.className = "file-metadata-header";
       const heading = document.createElement("h3");
       heading.id = `file-heading-${nextFileId}`;
-      heading.textContent = file.name;
+      heading.textContent = entry.path;
       row.setAttribute("aria-labelledby", heading.id);
       const size = document.createElement("span");
       size.className = "file-size";
@@ -200,6 +211,10 @@ document.addEventListener("DOMContentLoaded", () => {
     addFiles(fileInput.files);
     if (submittedFiles) fileInput.value = "";
   });
+  directoryInput?.addEventListener("change", () => {
+    addFiles(directoryInput.files);
+    directoryInput.value = "";
+  });
   clearFiles?.addEventListener("click", () => {
     queue.splice(0);
     fileMetadata.replaceChildren();
@@ -231,8 +246,37 @@ document.addEventListener("DOMContentLoaded", () => {
     dropZone.addEventListener("dragover", (event) => {
       if (isFileDrag(event)) event.dataTransfer.dropEffect = "copy";
     });
-    dropZone.addEventListener("drop", (event) => {
-      if (isFileDrag(event)) addFiles(event.dataTransfer.files);
+    dropZone.addEventListener("drop", async (event) => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
+      const files = [], paths = [];
+      // Entries must be captured during the drop event before the data store closes.
+      const entries = Array.from(event.dataTransfer.items || []).filter((item) => item.kind === "file").map((item) => item.webkitGetAsEntry?.());
+      const fallback = Array.from(event.dataTransfer.files);
+      const visit = async (entry, parent = "") => {
+        const path = parent + entry.name;
+        if (entry.isFile) {
+          const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+          files.push(file); paths.push(path);
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          let children;
+          do {
+            children = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+            for (const child of children) await visit(child, path + "/");
+          } while (children.length);
+        }
+      };
+      try {
+        if (entries.length && entries.every(Boolean)) {
+          for (const entry of entries) await visit(entry);
+          addFiles(files, paths);
+          if (!files.length) { selectionError.hidden = false; selectionError.textContent = "选择的文件夹没有文件。空目录请在项目目录中新建。"; }
+        } else addFiles(fallback);
+      } catch {
+        selectionError.hidden = false;
+        selectionError.textContent = "读取文件夹失败，请使用“选择文件夹”按钮重试。";
+      }
     });
   }
 
@@ -269,6 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+  syncFolderGroup();
 
   const updateRecordFields = () => {
     const isPublication = typeSelect?.value === "publication";
