@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 from PIL import Image
 
 from .forms import LoginForm, MaterialCategoryForm, MaterialCollectionForm, MaterialMetadataForm, UploadMetadataForm
-from .models import ArchiveGroup, AuditLog, Journal, Material, MaterialCategory, MaterialCollection, MaterialVersion, PublicationMetadata, UploadBatch, UploadBatchItem, UserAccountState
+from .models import ArchiveGroup, AuditLog, Folder, Journal, Material, MaterialCategory, MaterialCollection, MaterialVersion, PublicationMetadata, UploadBatch, UploadBatchItem, UserAccountState
 from .permissions import accessible_collections, accessible_groups, accessible_materials, can_manage_material
 from .search import search_materials
 
@@ -101,11 +101,30 @@ def logout_view(request):
 
 @login_required
 def home(request):
+    from .services.folders import descendants, folder_choices, visible_folders
+
     query = request.GET.get("q", "").strip()[:200]
     results = search_materials(request.user, query)
     extension = request.GET.get("type", "").strip().lower().lstrip(".")
     category = request.GET.get("category", "").strip()[:120]
     group_id = request.GET.get("group", "").strip()
+    folder_id = request.GET.get("folder", "").strip()
+    selected_folder = None
+    folder_error = ""
+    folder_ids = set()
+    if folder_id:
+        allowed_folders = visible_folders(request.user)
+        if group_id.isdigit():
+            allowed_folders = allowed_folders.filter(group_id=int(group_id))
+        selected_folder = allowed_folders.filter(pk=int(folder_id)).first() if folder_id.isdigit() else None
+        if selected_folder:
+            folder_ids = descendants(selected_folder)
+        else:
+            folder_error = "所选文件夹不属于当前项目或已不可访问，请重新选择。"
+        if isinstance(results, list):
+            results = [item for item in results if item.folder_id in folder_ids]
+        else:
+            results = results.filter(folder_id__in=folder_ids)
     uploader_id = request.GET.get("uploader", "").strip()
     uploaded_after = parse_date(request.GET.get("after", ""))
     uploaded_before = parse_date(request.GET.get("before", ""))
@@ -209,10 +228,15 @@ def home(request):
     pagination_params.pop("page", None)
     context = {
         "page_obj": page_obj,
+        "has_filters": any(request.GET.get(key) for key in ("q", "type", "category", "group", "folder", "uploader", "after", "before", "document_after", "document_before", "collection", "record_type", "author", "journal", "year", "volume", "issue", "doi")),
         "query": query,
         "type_filter": extension,
         "category_filter": category,
         "group_filter": group_id,
+        "folder_filter": folder_id,
+        "folder_error": folder_error,
+        "selected_folder": selected_folder,
+        "folder_options": folder_choices(request.user),
         "uploader_filter": uploader_id,
         "uploaded_after": request.GET.get("after", ""),
         "uploaded_before": request.GET.get("before", ""),
@@ -247,6 +271,15 @@ def home(request):
 
 @login_required
 def upload(request):
+    import json
+    from django.core.exceptions import ValidationError
+    from .services.folders import can_create, folder_path, resolve_upload_folder, upload_parts, visible_folders
+    folder_id = request.POST.get("folder") if request.method == "POST" else request.GET.get("folder")
+    if folder_id and not folder_id.isdigit():
+        raise Http404
+    selected_folder = get_object_or_404(visible_folders(request.user), pk=folder_id) if folder_id and folder_id.isdigit() else None
+    if selected_folder and not can_create(request.user, selected_folder.group):
+        raise Http404
     allowed_groups = _group_queryset(request.user)
     allowed_collections = accessible_collections(request.user).filter(groups__in=allowed_groups).distinct()
     form = UploadMetadataForm(
@@ -256,11 +289,23 @@ def upload(request):
     )
     if request.method == "GET":
         private_groups = list(allowed_groups.filter(is_public=False)[:2])
-        if len(private_groups) == 1:
+        if selected_folder:
+            form.initial["groups"] = [selected_folder.group_id]
+        elif len(private_groups) == 1:
             form.initial["groups"] = [private_groups[0].pk]
     if request.method == "POST":
         files = request.FILES.getlist("files")
+        relative_paths = []
         form.is_valid()
+        try:
+            raw_paths = json.loads(request.POST.get("relative_paths", "[]"))
+            if not isinstance(raw_paths, list) or (raw_paths and len(raw_paths) != len(files)) or any(not isinstance(path, str) for path in raw_paths):
+                raise ValidationError("上传文件与目录路径数量不一致，请重新选择文件。")
+            relative_paths = [upload_parts(path) for path in raw_paths] if raw_paths else [[] for _ in files]
+            if any(parts and parts[-1] != uploaded.name for parts, uploaded in zip(relative_paths, files)):
+                raise ValidationError("文件名与目录路径不一致，请重新选择文件。")
+        except (ValueError, ValidationError) as exc:
+            form.add_error(None, "；".join(exc.messages) if isinstance(exc, ValidationError) else "上传路径格式无效。")
         if not files:
             form.add_error(None, "请选择至少一个文件。")
         if form.is_valid() and files:
@@ -276,6 +321,12 @@ def upload(request):
             max_batch_size = getattr(settings, "MAX_BATCH_UPLOAD_SIZE", 1024 * 1024 * 1024)
             if sum(item.size for item in files) > max_batch_size:
                 form.add_error(None, "本次批量上传总量超过 1 GB 上限，请分批上传。")
+        if form.is_valid() and files and not form.errors:
+            if selected_folder and set(form.cleaned_data["groups"].values_list("pk", flat=True)) != {selected_folder.group_id}:
+                form.add_error("groups", "目录上传只能使用该目录所属项目的授权。")
+            if selected_folder is None:
+                primary = form.cleaned_data["groups"].order_by("is_public", "pk").first()
+                selected_folder, _ = Folder.objects.get_or_create(group=primary, parent=None, normalized_name="待整理资料", deleted_at=None, defaults={"name": "待整理资料", "created_by": request.user})
         if form.is_valid() and files and not form.errors:
             batch = UploadBatch.objects.create(created_by=request.user, title=f"批量上传 {timezone.localtime():%Y-%m-%d %H:%M}")
             failed_count = 0
@@ -315,6 +366,7 @@ def upload(request):
                             document_date=item_values["document_date"] if item_values["record_type"] == Material.RecordType.MATERIAL else None,
                             uploaded_by=request.user,
                             upload_batch=batch,
+                            folder=resolve_upload_folder(selected_folder, relative_paths[file_index], request.user),
                         )
                         material.groups.set(form.cleaned_data["groups"])
                         material.collections.set(form.cleaned_data["collections"])
@@ -346,6 +398,8 @@ def upload(request):
         "categories": MaterialCategory.objects.filter(is_active=True),
         "journals": Journal.objects.filter(is_active=True),
         "max_size_mb": settings.MAX_UPLOAD_SIZE // (1024 * 1024),
+        "selected_folder": selected_folder,
+        "folder_choices": [(f.pk, folder_path(f), f.group_id) for f in visible_folders(request.user)],
     })
 
 
@@ -494,6 +548,8 @@ def edit_material(request, material_id):
         invalid_collection = any(not collection.groups.filter(pk__in=selected_group_ids).exists() for collection in selected_collections)
         if not selected_groups:
             form.add_error("groups", "资料至少需要归属一个分组。")
+        elif material.folder_id and material.folder.group_id not in selected_group_ids:
+            form.add_error("groups", "所属目录的项目授权不可在此移除；请使用跨项目移动调整归档与授权。")
         elif invalid_collection:
             form.add_error("collections", "所选资料集合不属于资料的任一授权分组。")
         else:
@@ -660,13 +716,18 @@ def recycle_bin(request):
     if not (request.user.is_staff or request.user.is_superuser):
         raise Http404
     materials = accessible_materials(request.user, include_deleted=True).filter(deleted_at__isnull=False)
-    return render(request, "library/recycle_bin.html", {"materials": materials})
+    folders = Folder.objects.filter(deleted_at__isnull=False).select_related("group", "parent")
+    folders = [folder for folder in folders if not folder.parent or folder.parent.deletion_batch != folder.deletion_batch]
+    return render(request, "library/recycle_bin.html", {"materials": materials, "folders": folders})
 
 
 @login_required
 @require_POST
 def restore_material(request, material_id):
     material = get_object_or_404(accessible_materials(request.user, include_deleted=True), pk=material_id, deleted_at__isnull=False)
+    if material.folder and material.folder.deleted_at:
+        messages.error(request, "请先从回收站恢复所属文件夹。")
+        return redirect("recycle_bin")
     if not (request.user.is_staff or request.user.is_superuser or material.uploaded_by_id == request.user.id):
         raise Http404
     material.deleted_at = None

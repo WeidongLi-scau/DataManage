@@ -192,7 +192,7 @@ def bulk_materials(request):
                 elif action == "remove_group":
                     for item in materials:
                         remaining = item.groups.exclude(pk=target.pk)
-                        if not remaining.exists() or item.collections.exclude(groups__in=remaining).exists():
+                        if (item.folder_id and item.folder.group_id == target.pk) or not remaining.exists() or item.collections.exclude(groups__in=remaining).exists():
                             context["error"] = "移除后会有资料失去全部项目归属，或集合与项目不再匹配，请先逐项调整。"
                             break
             if "error" not in context:
@@ -208,7 +208,7 @@ def bulk_materials(request):
                                 raise Http404
                             if action == "remove_group":
                                 remaining = item.groups.exclude(pk=target.pk)
-                                if not remaining.exists() or item.collections.exclude(groups__in=remaining).exists():
+                                if (item.folder_id and item.folder.group_id == target.pk) or not remaining.exists() or item.collections.exclude(groups__in=remaining).exists():
                                     raise Http404
                             if action == "category":
                                 item.category = target

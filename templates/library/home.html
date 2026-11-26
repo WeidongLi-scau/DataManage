@@ -1,4 +1,4 @@
-{% extends 'library/base.html' %}{% load static %}
+{% extends 'library/base.html' %}{% load static directory_tags %}
 {% block title %}资料检索 · 组内资料库{% endblock %}
 {% block content %}
 <section class="page-heading library-heading">
@@ -7,7 +7,7 @@
 </section>
 
 <search class="search-surface">
-  <form class="search-form" method="get" action="{% url 'home' %}">
+  <form class="search-form" aria-label="资料检索与筛选" method="get" action="{% url 'home' %}">
     <div class="search-box">
       <label class="visually-hidden" for="search-query">搜索资料</label>
       <svg class="search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg>
@@ -17,10 +17,10 @@
     <fieldset class="filter-row">
       <legend class="visually-hidden">常用筛选</legend>
       <label>项目 / 课题
-        <select name="group"><option value="">全部可访问分组</option>{% for group in groups %}<option value="{{ group.id }}" {% if group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select>
+        <select name="group" id="search-group"><option value="">全部可访问分组</option>{% for group in groups %}<option value="{{ group.id }}" {% if group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select>
       </label>
-      <label>资料集合
-        <select name="collection"><option value="">全部集合</option>{% for collection in collections %}<option value="{{ collection.id }}" {% if collection_filter == collection.id|stringformat:'s' %}selected{% endif %}>{{ collection.name }}</option>{% endfor %}</select>
+      <label for="search-folder">归档文件夹
+        <select name="folder" id="search-folder" aria-describedby="folder-filter-help"><option value="">全部文件夹</option>{% regroup folder_options by group as folder_groups %}{% for folder_group in folder_groups %}<optgroup label="{{ folder_group.grouper.name }}" data-group="{{ folder_group.grouper.pk }}">{% for option in folder_group.list %}<option value="{{ option.pk }}" data-group="{{ option.group_id }}" {% if folder_filter == option.pk|stringformat:'s' %}selected{% endif %}>{{ option.display_path }}</option>{% endfor %}</optgroup>{% endfor %}</select>
       </label>
       <label>记录类型
         <select name="record_type"><option value="">全部类型</option><option value="material" {% if record_type_filter == 'material' %}selected{% endif %}>一般资料</option><option value="publication" {% if record_type_filter == 'publication' %}selected{% endif %}>已发表成果</option></select>
@@ -35,10 +35,14 @@
         <select name="sort"><option value="-created_at" {% if sort_filter == '-created_at' %}selected{% endif %}>最新上传</option><option value="created_at" {% if sort_filter == 'created_at' %}selected{% endif %}>最早上传</option><option value="-document_date" {% if sort_filter == '-document_date' %}selected{% endif %}>资料日期较新</option><option value="document_date" {% if sort_filter == 'document_date' %}selected{% endif %}>资料日期较早</option></select>
       </label>
     </fieldset>
+    <div class="folder-filter-context"><p id="folder-filter-help">按目录归档检索，选择文件夹后包含全部子目录。</p>{% if selected_folder %}<a class="table-action" href="{% url 'folder_browse' selected_folder.group_id selected_folder.pk %}">打开此文件夹 <span aria-hidden="true">→</span></a>{% endif %}</div>
+    <p id="folder-filter-status" class="muted" role="status" hidden></p>
+    {% if folder_error %}<p class="alert error" role="alert">{{ folder_error }}</p>{% endif %}
     <div class="filter-footer">
-    <details class="advanced-filters" {% if uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}open{% endif %}>
-      <summary>更多筛选{% if uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<span class="filter-active">已应用</span>{% endif %}</summary>
+    <details class="advanced-filters" {% if collection_filter or uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}open{% endif %}>
+      <summary>更多筛选{% if collection_filter or uploader_filter or uploaded_after or uploaded_before or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<span class="filter-active">已应用</span>{% endif %}</summary>
       <div class="advanced-filter-fields">
+        <label for="legacy-collection">旧资料集合（兼容筛选）<select name="collection" id="legacy-collection" aria-describedby="legacy-collection-help"><option value="">不限制旧集合</option>{% for collection in collections %}<option value="{{ collection.id }}" {% if collection_filter == collection.id|stringformat:'s' %}selected{% endif %}>{{ collection.name }}</option>{% endfor %}</select><small id="legacy-collection-help">仅匹配旧集合关联；目录中新上传或移动的资料请用“归档文件夹”检索。</small></label>
         <label>上传者<select name="uploader"><option value="">所有上传者</option>{% for uploader in uploaders %}<option value="{{ uploader.uploaded_by_id }}" {% if uploader_filter == uploader.uploaded_by_id|stringformat:'s' %}selected{% endif %}>{{ uploader.uploaded_by__first_name }} {{ uploader.uploaded_by__last_name }}{% if not uploader.uploaded_by__first_name and not uploader.uploaded_by__last_name %}{{ uploader.uploaded_by__username }}{% endif %}</option>{% endfor %}</select></label>
         <label>资料日期从<input type="date" name="document_after" value="{{ document_after }}"></label>
         <label>资料日期至<input type="date" name="document_before" value="{{ document_before }}"></label>
@@ -52,7 +56,7 @@
         <label>DOI<input type="search" name="doi" value="{{ doi_filter }}"></label>
       </div>
     </details>
-    <div class="search-actions"><button class="button secondary" type="submit">应用筛选</button>{% if query or type_filter or group_filter or category_filter or uploader_filter or uploaded_after or uploaded_before or collection_filter or record_type_filter or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<a class="clear-filters" href="{% url 'home' %}">清除条件</a>{% endif %}</div>
+    <div class="search-actions"><button class="button secondary" type="submit">应用筛选</button>{% if query or type_filter or group_filter or category_filter or uploader_filter or uploaded_after or uploaded_before or folder_filter or collection_filter or record_type_filter or document_after or document_before or author_filter or journal_filter or year_filter or volume_filter or issue_filter or doi_filter %}<a class="clear-filters" href="{% url 'home' %}">清除条件</a>{% endif %}</div>
     </div>
   </form>
 </search>
@@ -68,6 +72,7 @@
           <label class="material-select"><input type="checkbox" name="materials" value="{{ material.pk }}"><span class="visually-hidden">选择 {{ material.title }}</span></label>
           <div class="file-badge {% if material.extension == '.pdf' %}pdf{% elif material.extension == '.docx' %}word{% elif material.extension == '.png' %}image{% endif %}" aria-hidden="true">{% if material.extension == '.pdf' %}PDF{% elif material.extension == '.docx' %}DOC{% elif material.extension == '.png' %}IMG{% else %}FILE{% endif %}</div>
           <div class="material-main">
+            {% archive_location material as location %}{% if location %}<p class="archive-path"><a href="{% url 'folder_browse' location.folder.group_id location.folder.pk %}">{{ location.path }} · 打开所在文件夹</a></p>{% endif %}
             <div class="material-title-row"><a class="material-title" href="{% url 'material_detail' material.id %}">{{ material.title }}</a><span class="record-type-label {% if material.record_type == 'publication' %}publication{% endif %}">{% if material.record_type == 'publication' %}已发表成果{% else %}一般资料{% endif %}</span></div>
             <p class="material-description">{{ material.description|default:material.original_name|truncatechars:150 }}</p>
             <div class="meta-line">
@@ -82,9 +87,10 @@
     </div>
     </form>
   {% else %}
-    <div class="empty-state"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="21" cy="21" r="12"/><path d="m30 30 9 9"/></svg></div><h3>{% if query %}没有找到匹配资料{% else %}资料库还没有内容{% endif %}</h3><p>{% if query %}调整关键词或清除部分筛选，再试一次。{% else %}上传第一份资料，之后就可以在这里检索。{% endif %}</p>{% if query %}<a class="button secondary" href="{% url 'home' %}">清除搜索条件</a>{% else %}<a class="button secondary" href="{% url 'upload' %}">上传第一份资料</a>{% endif %}</div>
+    <div class="empty-state"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="21" cy="21" r="12"/><path d="m30 30 9 9"/></svg></div><h3>{% if has_filters %}没有符合条件的资料{% else %}资料库还没有内容{% endif %}</h3><p>{% if has_filters %}调整关键词或清除部分筛选，再试一次。{% else %}上传第一份资料，之后就可以在这里检索。{% endif %}</p>{% if has_filters %}<a class="button secondary" href="{% url 'home' %}">清除搜索条件</a>{% else %}<a class="button secondary" href="{% url 'upload' %}">上传第一份资料</a>{% endif %}</div>
   {% endif %}
   {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="资料列表分页">{% if page_obj.has_previous %}<a href="?{{ pagination_query }}&page={{ page_obj.previous_page_number }}">← 上一页</a>{% endif %}<span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>{% if page_obj.has_next %}<a href="?{{ pagination_query }}&page={{ page_obj.next_page_number }}">下一页 →</a>{% endif %}</nav>{% endif %}
 </section>
 <script src="{% static 'library/workflows.js' %}" defer></script>
+<script src="{% static 'library/search-filters.js' %}" defer></script>
 {% endblock %}

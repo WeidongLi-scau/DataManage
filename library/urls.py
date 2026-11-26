@@ -3,9 +3,21 @@ from django.urls import path
 from . import views
 from . import management_views
 from . import workflow_views
+from . import directory_views
 
 
 urlpatterns = [
+    path("folders/batch/", directory_views.batch_folders, name="batch_folders"),
+    path("projects/<int:group_id>/files/", directory_views.browse, name="folder_root"),
+    path("projects/<int:group_id>/files/<int:folder_id>/", directory_views.browse, name="folder_browse"),
+    path("projects/<int:group_id>/folders/new/", directory_views.folder_action, name="root_folder_create"),
+    path("projects/<int:group_id>/folders/<int:folder_id>/new/", directory_views.folder_action, name="folder_create"),
+    path("projects/<int:group_id>/folders/<int:folder_id>/rename/", directory_views.folder_action, {"action": "rename"}, name="folder_rename"),
+    path("projects/<int:group_id>/folders/<int:folder_id>/move/", directory_views.folder_action, {"action": "move"}, name="folder_move"),
+    path("projects/<int:group_id>/folders/<int:folder_id>/delete/", directory_views.folder_action, {"action": "delete"}, name="folder_delete"),
+    path("folders/<int:folder_id>/download/", directory_views.folder_download, name="folder_download"),
+    path("folders/<int:folder_id>/restore/", directory_views.folder_restore, name="folder_restore"),
+    path("materials/move/", directory_views.move_materials, name="move_materials"),
     path("account/", workflow_views.personal_settings, name="personal_settings"),
     path("projects/", workflow_views.projects, name="projects"),
     path("projects/<int:group_id>/", workflow_views.projects, name="project_detail"),

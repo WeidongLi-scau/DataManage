@@ -1,0 +1,11 @@
+<ul class="directory-tree-list">
+  {% for node in tree_nodes %}
+  <li class="directory-tree-node{% if node.in_path %} is-in-path{% endif %}">
+    <div class="directory-tree-row">
+      {% if node.children %}<button type="button" class="directory-branch-toggle" aria-label="展开或收起 {{ node.folder.name }} 的子文件夹" aria-expanded="true" aria-controls="folder-children-{{ node.folder.pk }}" data-initial-expanded="{{ node.expanded|yesno:'true,false' }}" hidden><svg class="tree-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg></button>{% else %}<span class="directory-tree-spacer" aria-hidden="true"></span>{% endif %}
+      {% include 'library/directory_tree_link.html' %}
+    </div>
+    {% if node.children %}<div class="directory-tree-children" id="folder-children-{{ node.folder.pk }}">{% include 'library/directory_tree.html' with tree_nodes=node.children %}</div>{% endif %}
+  </li>
+  {% endfor %}
+</ul>

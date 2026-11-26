@@ -264,6 +264,67 @@ a:hover { color: var(--green); }
 .account-credentials label { display: block; margin-block: 18px 8px; font-weight: 600; }
 .settings-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .workflow-section { margin-block-start: 20px; }
+.directory-breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 0 20px; font-size: 14px; overflow-wrap: anywhere; }
+.directory-layout { display: grid; grid-template-columns: 292px minmax(0, 1fr); gap: 20px; align-items: start; }
+.directory-sidebar { min-width: 0; padding: 20px 14px; }
+.directory-sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-inline: 8px; }
+.directory-sidebar-heading h2 { margin: 0; }
+.tree-expand-all { padding: 6px 4px; border: 0; background: transparent; color: var(--green); font-size: 12px; font-weight: 600; min-height: 36px; }
+.tree-expand-all:hover { text-decoration: underline; text-underline-offset: 3px; }
+.directory-tree-hint { margin: 8px 8px 16px; color: var(--muted); font-size: 12px; }
+.directory-tree { max-height: 70vh; overflow: auto; scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+.directory-tree .directory-tree-list { list-style: none; margin: 0; padding: 0; }
+.directory-tree-node { position: relative; margin-block: 2px; min-width: 0; }
+.directory-tree-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; min-height: 44px; border-radius: 6px; }
+.directory-branch-toggle .tree-chevron { width: 14px; height: 14px; margin: auto; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.directory-branch-toggle { display: grid; place-items: center; width: 28px; align-self: stretch; padding: 0; border: 0; border-radius: 5px; background: transparent; }
+.directory-branch-toggle[hidden] { display: none; }
+.directory-branch-toggle:hover { background: var(--surface-green); }
+.directory-branch-toggle[aria-expanded="true"] .tree-chevron { transform: rotate(90deg); }
+.directory-tree-row:hover { background: var(--surface-soft); }
+.directory-tree a { display: flex; align-items: center; gap: 8px; padding: 10px 8px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; border: 1px solid transparent; border-radius: 6px; }
+.directory-tree-row > a { grid-column: 2; }
+.directory-tree .tree-folder-icon, .directory-tree-root svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.6; flex: none; }
+.tree-folder-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-tree .directory-tree-root { min-height: 44px; padding-inline: 10px; margin-block-end: 8px; gap: 10px; }
+.directory-tree .directory-tree-children { position: relative; margin-inline-start: 13px; padding-inline-start: 18px; }
+.directory-tree-children::before { content: ""; position: absolute; inset-inline-start: 0; inset-block: 0 22px; border-inline-start: 1px solid var(--line-strong); }
+.directory-tree-children > ul > li::before { content: ""; position: absolute; inset-inline-start: -18px; inset-block-start: 22px; width: 18px; border-block-start: 1px solid var(--line-strong); }
+.directory-tree a[aria-current="page"] { color: var(--green-ink); background: var(--surface-green); border-color: #abcbb9; font-weight: 650; }
+.is-in-path > .directory-tree-row .tree-folder-icon { color: var(--green); }
+.tree-current-label { margin-inline-start: auto; white-space: nowrap; font-size: 10px; font-weight: 600; color: var(--green-ink); }
+.folder-filter-context { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; align-items: baseline; margin-block: 10px 16px; }
+.folder-filter-context p { margin: 0; font-size: 12px; color: var(--muted); }
+#legacy-collection-help { display: block; font-weight: 400; color: var(--muted); line-height: 1.6; }
+@media (pointer: coarse) {
+  .directory-tree-row { grid-template-columns: 48px minmax(0, 1fr); min-height: 48px; }
+  .directory-tree a, .tree-expand-all { min-height: 48px; }
+  .directory-branch-toggle { width: 48px; }
+}
+.directory-main { min-width: 0; }
+.directory-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-block: 18px; }
+.directory-search { display: flex; gap: 12px; align-items: end; margin-block: 24px; }
+.directory-search label { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.directory-search input, .directory-search select, #upload-folder { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; }
+.directory-folders, .directory-files { list-style: none; margin: 0; padding: 0; }
+.directory-folders li, .directory-files li { padding-block: 15px; border-block-end: 1px solid var(--line); }
+.directory-folders a { display: flex; gap: 12px; align-items: center; font-weight: 650; overflow-wrap: anywhere; }
+.directory-folders li { position: relative; padding-inline-start: 33px; }
+.folder-select { position: absolute; inset-inline-start: 0; inset-block-start: 14px; min-width: 24px; min-height: 24px; }
+.folder-select input { width: 18px; height: 18px; accent-color: var(--green); }
+.directory-folders svg { width: 25px; height: 25px; stroke: currentColor; stroke-width: 1.6; flex: none; }
+.directory-folders small, .directory-files small { display: block; margin-block-start: 6px; color: var(--ink-soft); overflow-wrap: anywhere; font-size: 12px; }
+.directory-files li { display: flex; align-items: start; gap: 12px; }
+.directory-files li > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.directory-files input { width: 18px; height: 18px; accent-color: var(--green); margin: 6px; }
+.archive-path { margin: 0 0 7px; font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 850px) {
+  .directory-layout { grid-template-columns: minmax(0, 1fr); }
+  .directory-tree { max-height: 220px; }
+  .directory-search { flex-wrap: wrap; }
+  .directory-search label { flex-basis: 100%; }
+  .directory-search input, .directory-search select { font-size: 16px; }
+}
 .version-actions { display: flex; flex-wrap: wrap; gap: 12px; grid-column: 2 / -1; }
 .version-row > span { min-width: 0; overflow-wrap: anywhere; }
 .workflow-material-list, .project-list { list-style: none; padding: 0; margin: 0; }
