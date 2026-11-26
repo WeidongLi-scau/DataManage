@@ -1,0 +1,6 @@
+{% extends 'library/base.html' %}
+{% block title %}上传批次 · 组内资料库{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>批量上传结果</h1><p>{{ batch.title }} · {{ batch.created_at|date:'Y-m-d H:i' }} · {{ batch.items.count }} 个文件</p></div><div class="heading-actions"><a class="button secondary" href="{% url 'upload' %}">继续上传</a><a class="button ghost" href="{% url 'home' %}">返回资料库</a></div></div>
+<section class="manage-panel"><div class="table-wrap" tabindex="0" role="region" aria-label="本批上传文件状态，可横向滚动"><table class="manage-table"><caption>此批次中每个文件的独立处理结果</caption><thead><tr><th scope="col">文件</th><th scope="col">资料记录</th><th scope="col">处理状态</th><th scope="col">说明</th></tr></thead><tbody>{% for item in batch.items.all %}<tr><th scope="row">{{ item.original_name }}</th><td>{% if item.material_id and not item.material.deleted_at %}<a class="table-action" href="{% url 'material_detail' item.material_id %}">{{ item.material.title }}</a>{% else %}资料记录已移入回收站{% endif %}</td><td><span class="processing-pill {{ item.status }}">{{ item.get_status_display }}</span></td><td>{{ item.error_message|default:'—' }}</td></tr>{% empty %}<tr><td colspan="4">批次中没有文件记录。</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

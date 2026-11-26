@@ -1,0 +1,7 @@
+{% extends 'library/base.html' %}
+{% block title %}{{ group.name }} · 项目资料{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>{{ group.name }}</h1><p>{{ group.description|default:'暂无项目说明' }}</p></div><a class="button ghost" href="{% url 'projects' %}">返回项目列表</a></div>
+<section class="manage-panel"><h2>资料集合</h2><div class="tag-row">{% for collection in collections %}<a class="button secondary" href="{% url 'home' %}?group={{ group.pk }}&amp;collection={{ collection.pk }}">{{ collection.name }}</a>{% empty %}<p class="muted">暂无资料集合。</p>{% endfor %}</div><p class="muted">负责人：{% for manager in group.managers.all %}{{ manager.get_full_name|default:manager.username }}{% if not forloop.last %}、{% endif %}{% empty %}未指定{% endfor %}</p></section>
+<section class="manage-panel workflow-section"><div class="results-head"><h2>最近更新 · {{ material_count }} 份资料</h2><a class="table-action" href="{% url 'home' %}?group={{ group.pk }}">检索本项目</a></div>{% include 'library/simple_material_list.html' %}{% include 'library/simple_pagination.html' %}</section>
+{% endblock %}

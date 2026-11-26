@@ -1,0 +1,14 @@
+{% extends 'library/base.html' %}
+{% block title %}系统管理 · 组内资料库{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>系统管理</h1><p>管理团队账户、项目分组和资料组织规则。</p></div><a class="button secondary" href="{% url 'home' %}">返回资料库</a></div>
+<section class="manage-overview" aria-label="管理概况"><span>启用成员 <strong>{{ user_count }}</strong></span><span>项目/课题组 <strong>{{ group_count }}</strong></span><span>资料集合 <strong>{{ collection_count }}</strong></span><span>分类 <strong>{{ category_count }}</strong></span><span>期刊目录 <strong>{{ journal_count }}</strong></span></section>
+<section class="manage-panel"><h2>管理入口</h2><nav class="manage-links" aria-label="系统管理功能">
+<a href="{% url 'manage_users' %}"><span><strong>成员账户</strong><small>创建账户、分配可访问项目组</small></span><b aria-hidden="true">→</b></a>
+<a href="{% url 'manage_groups' %}"><span><strong>项目 / 课题组</strong><small>维护授权分组、成员和项目负责人</small></span><b aria-hidden="true">→</b></a>
+<a href="{% url 'manage_collections' %}"><span><strong>资料集合</strong><small>按专题或阶段整理组内资料</small></span><b aria-hidden="true">→</b></a>
+<a href="{% url 'manage_categories' %}"><span><strong>资料分类</strong><small>维护上传、编辑和检索使用的分类</small></span><b aria-hidden="true">→</b></a>
+<a href="{% url 'manage_journals' %}"><span><strong>期刊目录</strong><small>维护成果录入时可选的期刊名称</small></span><b aria-hidden="true">→</b></a>
+<a href="{% url 'system_status' %}"><span><strong>系统状态与审计</strong><small>查看处理队列、容量和运行情况</small></span><b aria-hidden="true">→</b></a>
+</nav></section>
+{% endblock %}

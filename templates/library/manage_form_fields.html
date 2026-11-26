@@ -1,0 +1,8 @@
+{% if form.non_field_errors %}<div class="alert error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% for field in form %}
+{% if field.name == 'groups' or field.name == 'members' or field.name == 'managers' or field.name == 'archive_groups' %}
+<fieldset class="manage-checks"><legend>{{ field.label }}</legend><div>{{ field }}</div>{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</fieldset>
+{% else %}
+<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>
+{% endif %}
+{% endfor %}

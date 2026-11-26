@@ -1,0 +1,22 @@
+{% extends 'library/base.html' %}
+{% block title %}在线预览 · {{ material.title }}{% endblock %}
+{% block content %}
+<div class="preview-heading">
+  <div class="preview-heading-copy">
+    <a class="back-link" href="{% url 'material_detail' material.id %}">返回资料详情</a>
+    <h1>{{ material.title }}</h1>
+    <p>{{ preview_name }} · v{{ preview_version.version_number }}</p>
+  </div>
+  <div class="preview-actions">
+    <a class="button ghost" href="{% url 'material_detail' material.id %}">详情</a>
+    <a class="button primary" href="{{ download_url }}">下载此版本原件</a>
+  </div>
+</div>
+<section class="preview-frame" aria-label="{{ material.title }} 文件预览">
+  {% if preview_type == 'application/pdf' %}
+    <iframe src="{{ preview_url }}" title="{{ material.title }} PDF 预览" loading="eager" referrerpolicy="same-origin"></iframe>
+  {% elif preview_type == 'image/png' %}
+    <div class="image-preview"><img src="{{ preview_url }}" alt="{{ material.title }}"></div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends 'library/base.html' %}
+{% block title %}项目资料 · 组内资料库{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>项目资料</h1><p>进入项目查看资料集合和最近更新。仅列出你有权访问的项目。</p></div></div>
+<section class="manage-panel"><h2>可访问项目</h2><div class="project-list">{% for group in groups %}<article class="project-row"><div><h3><a href="{% url 'project_detail' group.pk %}">{{ group.name }}</a></h3><p>{{ group.description|default:'暂无项目说明' }}</p><p class="muted">{% if group.is_public %}公共资料 · 全体成员可访问{% else %}负责人：{% for manager in group.managers.all %}{{ manager.get_full_name|default:manager.username }}{% if not forloop.last %}、{% endif %}{% empty %}未指定{% endfor %}{% endif %} · {{ group.visible_material_count }} 份资料</p></div><a class="button secondary" href="{% url 'project_detail' group.pk %}">进入项目<span class="visually-hidden"> {{ group.name }}</span></a></article>{% empty %}<p>暂未分配项目，请联系管理员。</p>{% endfor %}</div></section>
+{% endblock %}

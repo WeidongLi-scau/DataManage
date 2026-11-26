@@ -1,0 +1,8 @@
+{% extends 'library/base.html' %}
+{% block title %}个人设置 · 组内资料库{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>个人设置</h1><p>账户：{{ request.user.username }}。项目组与权限由管理员维护。</p></div><a class="button ghost" href="{% url 'home' %}">返回资料库</a></div>
+<div class="settings-columns">
+<section class="manage-panel"><h2 id="profile-heading">个人信息</h2><form method="post" action="{% url 'personal_settings' %}" class="manage-form" aria-labelledby="profile-heading">{% csrf_token %}<input type="hidden" name="section" value="profile">{% include 'library/manage_form_fields.html' with form=profile_form %}<button class="button primary" type="submit">保存个人信息</button></form></section>
+<section class="manage-panel"><h2 id="change-heading">修改密码</h2><p class="muted">修改后当前登录保持有效，其他设备需要使用新密码重新登录。</p><form method="post" action="{% url 'personal_settings' %}" class="manage-form" aria-labelledby="change-heading">{% csrf_token %}<input type="hidden" name="section" value="password">{% include 'library/manage_form_fields.html' with form=password_form %}<button class="button primary" type="submit">保存新密码</button></form></section>
+</div>{% endblock %}

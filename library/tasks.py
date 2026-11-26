@@ -45,16 +45,25 @@ def process_version(version_id):
         with path.open("rb") as source:
             signature = source.read(8)
         if version.extension == ".pdf" and signature.startswith(b"%PDF-"):
-            reader = PdfReader(str(path), strict=False)
-            version.extracted_text = "\n".join(page.extract_text() or "" for page in reader.pages)[:1_000_000]
             version.content_type = "application/pdf"
+            try:
+                reader = PdfReader(str(path), strict=False)
+                version.extracted_text = "\n".join(page.extract_text() or "" for page in reader.pages)[:1_000_000]
+            except Exception as exc:
+                logger.warning("Could not extract searchable text from PDF version %s: %s", version_id, type(exc).__name__)
+                version.extracted_text = ""
+                version.error_message = "PDF 原件已保存，可在线预览；正文解析失败，未加入全文检索。"
         elif version.extension == ".docx" and _is_docx(path):
             document = DocxDocument(str(path))
             paragraphs = [paragraph.text for paragraph in document.paragraphs]
             table_cells = [cell.text for table in document.tables for row in table.rows for cell in row.cells]
             version.extracted_text = "\n".join(paragraphs + table_cells)[:1_000_000]
-            _create_docx_preview(version, path)
             version.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            try:
+                _create_docx_preview(version, path)
+            except Exception:
+                logger.warning("Could not create DOCX preview for version %s", version_id, exc_info=True)
+                version.error_message = "DOCX 原件已保存；在线转换预览暂不可用，可下载原件查看。"
         elif version.extension == ".png" and signature == b"\x89PNG\r\n\x1a\n":
             with Image.open(path) as image:
                 image.verify()
@@ -68,6 +77,11 @@ def process_version(version_id):
         version.status = MaterialVersion.Status.FAILED
         version.error_message = f"文件解析失败：{type(exc).__name__}"[:500]
     version.save(update_fields=["sha256", "extracted_text", "content_type", "status", "error_message", "preview_file"])
+    if version.material.current_version_id == version.pk and hasattr(version.material, "batch_item"):
+        batch_item = version.material.batch_item
+        batch_item.status = version.status
+        batch_item.error_message = version.error_message
+        batch_item.save(update_fields=["status", "error_message"])
     index_version(version)
     return version.status
 
