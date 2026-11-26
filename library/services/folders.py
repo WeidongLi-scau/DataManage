@@ -18,6 +18,19 @@ def visible_folders(user):
     return Folder.objects.filter(group__in=accessible_groups(user), deleted_at__isnull=True).select_related("group", "parent")
 
 
+def folder_choices(user, group=None):
+    folders = list(visible_folders(user).filter(group=group) if group else visible_folders(user))
+    by_id = {folder.pk: folder for folder in folders}
+    for folder in folders:
+        names, seen, current = [], set(), folder
+        while current and current.pk not in seen:
+            seen.add(current.pk)
+            names.append(current.name)
+            current = by_id.get(current.parent_id)
+        folder.display_path = " / ".join(reversed(names))
+    return sorted(folders, key=lambda folder: (folder.group_id, folder.display_path.casefold()))
+
+
 def can_create(user, group):
     return user.is_staff or user.is_superuser or group.members.filter(pk=user.pk).exists() or group.managers.filter(pk=user.pk).exists()
 

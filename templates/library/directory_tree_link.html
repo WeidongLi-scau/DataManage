@@ -1,0 +1,3 @@
+<a href="{% url 'folder_browse' group.pk node.folder.pk %}" title="{{ node.folder.display_path }}" {% if folder.pk == node.folder.pk %}aria-current="page"{% endif %}>
+  <svg class="tree-folder-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h7l2 2h9v12H3z"/></svg><span class="tree-folder-name">{{ node.folder.name }}</span>{% if folder.pk == node.folder.pk %}<span class="tree-current-label">当前</span>{% endif %}
+</a>

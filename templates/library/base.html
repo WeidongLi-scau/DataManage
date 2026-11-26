@@ -23,7 +23,7 @@
           <a href="{% url 'projects' %}" {% if request.resolver_match.url_name == 'projects' or request.resolver_match.url_name == 'project_detail' %}aria-current="page"{% endif %}>项目资料</a>
           <a href="{% url 'publications' %}" {% if request.resolver_match.url_name == 'publications' %}aria-current="page"{% endif %}>已发表成果</a>
           <a href="{% url 'upload' %}" {% if request.resolver_match.url_name == 'upload' %}aria-current="page"{% endif %}>上传资料</a>
-          <a href="{% url 'manage_collections' %}" {% if 'collection' in request.resolver_match.url_name %}aria-current="page"{% endif %}>资料集合</a>
+          <a href="{% url 'manage_collections' %}" {% if 'collection' in request.resolver_match.url_name %}aria-current="page"{% endif %}>旧资料集合</a>
           {% if request.user.is_staff or request.user.is_superuser %}
             <a href="{% url 'recycle_bin' %}" {% if request.resolver_match.url_name == 'recycle_bin' %}aria-current="page"{% endif %}>回收站</a>
             <a href="{% url 'system_status' %}" {% if request.resolver_match.url_name == 'system_status' %}aria-current="page"{% endif %}>系统状态</a>

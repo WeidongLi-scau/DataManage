@@ -101,11 +101,30 @@ def logout_view(request):
 
 @login_required
 def home(request):
+    from .services.folders import descendants, folder_choices, visible_folders
+
     query = request.GET.get("q", "").strip()[:200]
     results = search_materials(request.user, query)
     extension = request.GET.get("type", "").strip().lower().lstrip(".")
     category = request.GET.get("category", "").strip()[:120]
     group_id = request.GET.get("group", "").strip()
+    folder_id = request.GET.get("folder", "").strip()
+    selected_folder = None
+    folder_error = ""
+    folder_ids = set()
+    if folder_id:
+        allowed_folders = visible_folders(request.user)
+        if group_id.isdigit():
+            allowed_folders = allowed_folders.filter(group_id=int(group_id))
+        selected_folder = allowed_folders.filter(pk=int(folder_id)).first() if folder_id.isdigit() else None
+        if selected_folder:
+            folder_ids = descendants(selected_folder)
+        else:
+            folder_error = "所选文件夹不属于当前项目或已不可访问，请重新选择。"
+        if isinstance(results, list):
+            results = [item for item in results if item.folder_id in folder_ids]
+        else:
+            results = results.filter(folder_id__in=folder_ids)
     uploader_id = request.GET.get("uploader", "").strip()
     uploaded_after = parse_date(request.GET.get("after", ""))
     uploaded_before = parse_date(request.GET.get("before", ""))
@@ -209,10 +228,15 @@ def home(request):
     pagination_params.pop("page", None)
     context = {
         "page_obj": page_obj,
+        "has_filters": any(request.GET.get(key) for key in ("q", "type", "category", "group", "folder", "uploader", "after", "before", "document_after", "document_before", "collection", "record_type", "author", "journal", "year", "volume", "issue", "doi")),
         "query": query,
         "type_filter": extension,
         "category_filter": category,
         "group_filter": group_id,
+        "folder_filter": folder_id,
+        "folder_error": folder_error,
+        "selected_folder": selected_folder,
+        "folder_options": folder_choices(request.user),
         "uploader_filter": uploader_id,
         "uploaded_after": request.GET.get("after", ""),
         "uploaded_before": request.GET.get("before", ""),

@@ -129,6 +129,46 @@ class DirectoryTests(TestCase):
         response = self.client.get(url, {"q": "2026", "scope": "subtree"})
         self.assertTrue(response.context["folders"].filter(pk=self.year.pk).exists())
 
+    def test_home_folder_filter_includes_descendants_and_keeps_legacy_collections(self):
+        direct = self.material(folder=self.child, title="上层文件")
+        deep = self.material(title="子目录新上传文件")
+        outside = self.material(folder=self.root, title="目录外文件")
+        legacy = MaterialCollection.objects.create(name="旧论文集合", created_by=self.alice)
+        legacy.groups.add(self.group)
+        direct.collections.add(legacy)
+        response = self.client.get(reverse("home"), {"folder": self.child.pk})
+        ids = {item.pk for item in response.context["page_obj"]}
+        self.assertEqual(ids, {direct.pk, deep.pk})
+        self.assertContains(response, "归档文件夹")
+        self.assertContains(response, "旧资料集合（兼容筛选）")
+        self.assertContains(response, "打开此文件夹")
+        with patch("library.views.search_materials", return_value=[direct, deep, outside]):
+            response = self.client.get(reverse("home"), {"q": "文件", "folder": self.child.pk})
+        self.assertEqual({item.pk for item in response.context["page_obj"]}, ids)
+        response = self.client.get(reverse("home"), {"collection": legacy.pk})
+        self.assertEqual([item.pk for item in response.context["page_obj"]], [direct.pk])
+
+    def test_home_folder_filter_never_exposes_other_projects(self):
+        self.material()
+        self.material(folder=self.hidden, owner=self.bob, title="隐藏文件")
+        for value in (str(self.hidden.pk), "invalid", "999999"):
+            response = self.client.get(reverse("home"), {"folder": value})
+            self.assertEqual(response.context["page_obj"].paginator.count, 0)
+            self.assertContains(response, "请重新选择")
+            self.assertContains(response, "没有符合条件的资料")
+            self.assertNotContains(response, "私密文件夹")
+        self.group.members.add(self.bob)
+        self.client.force_login(self.bob)
+        response = self.client.get(reverse("home"), {"folder": self.year.pk, "group": self.other.pk})
+        self.assertEqual(response.context["page_obj"].paginator.count, 0)
+
+    def test_tree_expands_current_path_and_marks_current_folder(self):
+        response = self.client.get(self.url("folder_browse", self.year))
+        node = next(node for node in response.context["tree_nodes"] if node["folder"].pk == self.root.pk)
+        self.assertTrue(node["expanded"])
+        self.assertTrue(node["children"][0]["expanded"])
+        self.assertContains(response, 'class="tree-current-label">当前')
+
     def test_move_records_preserves_versions_and_cross_project_requires_admin_confirmation(self):
         item = self.material()
         original = item.current_version_id

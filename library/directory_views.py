@@ -19,21 +19,7 @@ from .permissions import accessible_groups, accessible_materials, can_manage_mat
 from .search import index_version
 from .services.folders import ancestors, can_create, can_manage_folder, clean_name, create_folder, descendants, folder_path, visible_folders
 from .workflow_views import audit
-
-
-def choices(user, group=None):
-    folders = list(visible_folders(user).filter(group=group) if group else visible_folders(user))
-    by_id = {folder.pk: folder for folder in folders}
-    def path(folder):
-        names, seen = [], set()
-        while folder and folder.pk not in seen:
-            seen.add(folder.pk)
-            names.append(folder.name)
-            folder = by_id.get(folder.parent_id)
-        return " / ".join(reversed(names))
-    for folder in folders:
-        folder.display_path = path(folder)
-    return sorted(folders, key=lambda folder: (folder.group_id, folder.display_path.casefold()))
+from .services.folders import folder_choices as choices
 
 
 @login_required
@@ -41,7 +27,9 @@ def browse(request, group_id, folder_id=None):
     group = get_object_or_404(accessible_groups(request.user), pk=group_id)
     folder = get_object_or_404(visible_folders(request.user), pk=folder_id, group=group) if folder_id else None
     all_folders = choices(request.user, group)
-    nodes = {item.pk: {"folder": item, "children": []} for item in all_folders}
+    breadcrumbs = ancestors(folder)
+    active_ids = {item.pk for item in breadcrumbs}
+    nodes = {item.pk: {"folder": item, "children": [], "expanded": not folder or item.pk in active_ids, "in_path": item.pk in active_ids} for item in all_folders}
     tree_nodes = []
     for item in all_folders:
         if item.parent_id in nodes:
@@ -77,7 +65,7 @@ def browse(request, group_id, folder_id=None):
         item.can_manage = can_manage_material(request.user, item)
     cross = accessible_materials(request.user).filter(groups=group).exclude(folder__group=group) if not folder and not query else Material.objects.none()
     return render(request, "library/directory.html", {
-        "group": group, "folder": folder, "breadcrumbs": ancestors(folder), "tree_nodes": tree_nodes,
+        "group": group, "folder": folder, "breadcrumbs": breadcrumbs, "tree_nodes": tree_nodes,
         "folders": found_folders.order_by("name"), "page_obj": page, "query": query, "scope": scope,
         "filter_query": urlencode({"q": query, "scope": scope}), "can_create": can_create(request.user, group),
         "can_manage_folder": folder and can_manage_folder(request.user, folder), "cross_materials": cross,
