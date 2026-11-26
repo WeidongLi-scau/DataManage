@@ -590,3 +590,20 @@ a:hover { color: var(--green); }
   .main-nav a[aria-current="page"] { outline: 2px solid currentColor; }
   .button, .tag, .record-type-label { border: 1px solid currentColor; }
 }
+
+.upload-progress-panel { width: min(100%, 960px); margin: 0 auto; }
+.upload-progress-panel[hidden] { display: none; }
+.upload-progress-panel [hidden], .material-fields-form[hidden] { display: none !important; }
+.upload-progress-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.upload-progress-heading h2 { margin: 0; }
+.upload-progress-panel > p { overflow-wrap: anywhere; }
+.upload-progress-heading > span { color: var(--ink-soft); font-size: 14px; font-variant-numeric: tabular-nums; }
+.upload-progress-panel progress { display: block; width: 100%; accent-color: var(--green); margin-block: 8px; }
+.upload-progress-files { position: relative; list-style: decimal; padding-inline-start: 24px; margin-block: 24px; max-height: 52vh; overflow-y: auto; scrollbar-color: var(--line-strong) transparent; }
+.upload-progress-files li { padding: 14px 4px; border-block-end: 1px solid var(--line); }
+.upload-progress-name { display: block; overflow-wrap: anywhere; font-weight: 600; }
+.upload-file-state { display: block; margin-block: 4px; color: var(--ink-soft); font-size: 13px; }
+.upload-progress-files [data-state="done"] .upload-file-state { color: var(--green-ink); }
+.upload-progress-files [data-state="failed"] .upload-file-state { color: var(--red); }
+.upload-progress-files [data-state="warning"] .upload-file-state { color: var(--amber); }
+.upload-progress-files small { display: block; overflow-wrap: anywhere; color: var(--ink-soft); }

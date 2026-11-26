@@ -274,6 +274,12 @@ def upload(request):
     import json
     from django.core.exceptions import ValidationError
     from .services.folders import can_create, folder_path, resolve_upload_folder, upload_parts, visible_folders
+    progress_mode = request.method == "POST" and request.POST.get("response_mode") == "progress"
+    progress_batch = None
+    if progress_mode and request.POST.get("progress_batch"):
+        progress_batch = get_object_or_404(UploadBatch, pk=request.POST["progress_batch"], created_by=request.user) if request.POST["progress_batch"].isdigit() else None
+        if progress_batch is None:
+            return JsonResponse({"error": "上传批次无效，请重新打开上传页。"}, status=400)
     folder_id = request.POST.get("folder") if request.method == "POST" else request.GET.get("folder")
     if folder_id and not folder_id.isdigit():
         raise Http404
@@ -295,6 +301,8 @@ def upload(request):
             form.initial["groups"] = [private_groups[0].pk]
     if request.method == "POST":
         files = request.FILES.getlist("files")
+        if progress_mode and len(files) != 1:
+            return JsonResponse({"error": "进度上传每次只接收一个文件。"}, status=400)
         relative_paths = []
         form.is_valid()
         try:
@@ -321,6 +329,11 @@ def upload(request):
             max_batch_size = getattr(settings, "MAX_BATCH_UPLOAD_SIZE", 1024 * 1024 * 1024)
             if sum(item.size for item in files) > max_batch_size:
                 form.add_error(None, "本次批量上传总量超过 1 GB 上限，请分批上传。")
+            if progress_batch:
+                from django.db.models import Sum
+                saved_size = progress_batch.items.aggregate(total=Sum("material__current_version__file_size"))["total"] or 0
+                if saved_size + sum(item.size for item in files) > max_batch_size:
+                    form.add_error(None, "本批已保存文件与当前文件合计超过 1 GB，请另开一个批次。")
         if form.is_valid() and files and not form.errors:
             if selected_folder and set(form.cleaned_data["groups"].values_list("pk", flat=True)) != {selected_folder.group_id}:
                 form.add_error("groups", "目录上传只能使用该目录所属项目的授权。")
@@ -328,7 +341,7 @@ def upload(request):
                 primary = form.cleaned_data["groups"].order_by("is_public", "pk").first()
                 selected_folder, _ = Folder.objects.get_or_create(group=primary, parent=None, normalized_name="待整理资料", deleted_at=None, defaults={"name": "待整理资料", "created_by": request.user})
         if form.is_valid() and files and not form.errors:
-            batch = UploadBatch.objects.create(created_by=request.user, title=f"批量上传 {timezone.localtime():%Y-%m-%d %H:%M}")
+            batch = progress_batch or UploadBatch.objects.create(created_by=request.user, title=f"批量上传 {timezone.localtime():%Y-%m-%d %H:%M}")
             failed_count = 0
             for file_index, uploaded in enumerate(files):
                 clean_name = Path(uploaded.name).name[:255]
@@ -377,12 +390,12 @@ def upload(request):
                         material.save(update_fields=["current_version", "updated_at"])
                         if form.cleaned_data["record_type"] == Material.RecordType.PUBLICATION:
                             _save_publication(material, item_values)
-                        UploadBatchItem.objects.create(batch=batch, material=material, original_name=version.original_name)
+                        batch_item = UploadBatchItem.objects.create(batch=batch, material=material, original_name=version.original_name)
                         _audit(request, "material.upload", material, file_name=clean_name, size=uploaded.size, batch=batch.pk)
                         transaction.on_commit(lambda version_id=version.pk: _enqueue_processing(version_id))
                 except Exception as exc:
                     logger.exception("Could not save uploaded file %s in batch %s", clean_name, batch.pk)
-                    UploadBatchItem.objects.create(
+                    batch_item = UploadBatchItem.objects.create(
                         batch=batch,
                         original_name=clean_name,
                         status=MaterialVersion.Status.FAILED,
@@ -391,8 +404,19 @@ def upload(request):
                     _audit(request, "material.upload.failure", batch, file_name=clean_name, error=type(exc).__name__)
                     failed_count += 1
             success_count = len(files) - failed_count
+            if progress_mode:
+                batch_item.refresh_from_db()
+                return JsonResponse({
+                    "saved": bool(batch_item.material_id), "batch_id": batch.pk,
+                    "batch_url": reverse("upload_batch_detail", args=[batch.pk]),
+                    "material_url": reverse("material_detail", args=[batch_item.material_id]) if batch_item.material_id else None,
+                    "status": batch_item.status, "status_label": batch_item.get_status_display(),
+                    "message": batch_item.error_message,
+                })
             messages.success(request, f"批量上传已处理：{success_count} 个成功，{failed_count} 个失败。")
             return redirect("upload_batch_detail", batch_id=batch.pk)
+        if progress_mode:
+            return JsonResponse({"error": "请检查填写的信息。", "errors": {name: [str(error) for error in errors] for name, errors in form.errors.items()}}, status=422)
     return render(request, "library/upload.html", {
         "form": form,
         "categories": MaterialCategory.objects.filter(is_active=True),

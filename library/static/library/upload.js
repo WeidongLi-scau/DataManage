@@ -314,6 +314,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   syncFolderGroup();
+  form?.addEventListener("submit", (event) => {
+    if (event.defaultPrevented || !submittedFiles || !queue.length || typeof XMLHttpRequest === "undefined") return;
+    const progressEvent = new CustomEvent("files-ready-to-upload", { cancelable: true, detail: { entries: queue } });
+    form.dispatchEvent(progressEvent);
+    if (progressEvent.defaultPrevented) event.preventDefault();
+  });
 
   const updateRecordFields = () => {
     const isPublication = typeSelect?.value === "publication";

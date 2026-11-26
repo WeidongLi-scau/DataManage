@@ -14,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import ArchiveGroup, Folder, Material, MaterialCollection
+from .models import ArchiveGroup, Folder, Material, MaterialCollection, UploadBatch
 from .services.folders import create_folder, upload_parts
 from .services.uploads import create_version
 
@@ -104,6 +104,45 @@ class DirectoryTests(TestCase):
         self.assertEqual(folder.parent.name, "具体项目")
         self.assertEqual(folder.parent.parent, self.year)
         self.assertEqual(Material.objects.filter(folder=folder).count(), 2)
+
+    def progress_upload(self, **extra):
+        values = {"folder": self.year.pk, "record_type": "material", "groups": [self.group.pk],
+                  "response_mode": "progress", "relative_paths": json.dumps(["项目/a.txt"]),
+                  "files": SimpleUploadedFile("a.txt", b"contents"), "file_0_title": "单独标题"}
+        values.update(extra)
+        return self.client.post(reverse("upload"), values)
+
+    def test_progress_upload_reports_each_file_and_reuses_owned_batch(self):
+        with patch("library.views._enqueue_processing"):
+            first = self.progress_upload()
+            self.assertEqual(first.status_code, 200)
+            data = first.json()
+            self.assertTrue(data["saved"])
+            second = self.progress_upload(progress_batch=data["batch_id"])
+        self.assertEqual(second.json()["batch_id"], data["batch_id"])
+        self.assertEqual(UploadBatch.objects.get(pk=data["batch_id"]).items.count(), 2)
+        self.assertEqual(Material.objects.filter(title="单独标题").count(), 2)
+        self.assertEqual(Material.objects.first().folder.name, "项目")
+
+    def test_progress_upload_validation_authorization_limits_and_save_failure(self):
+        response = self.progress_upload(groups=[])
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("groups", response.json()["errors"])
+        foreign = UploadBatch.objects.create(created_by=self.bob)
+        self.assertEqual(self.progress_upload(progress_batch=foreign.pk).status_code, 404)
+        own = UploadBatch.objects.create(created_by=self.alice)
+        item = self.material()
+        item.upload_batch = own; item.save()
+        from .models import UploadBatchItem
+        UploadBatchItem.objects.create(batch=own, material=item, original_name="a.txt")
+        with override_settings(MAX_BATCH_UPLOAD_SIZE=10):
+            self.assertEqual(self.progress_upload(progress_batch=own.pk).status_code, 422)
+        with patch("library.services.uploads.create_version", side_effect=OSError("test")):
+            response = self.progress_upload()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["saved"])
+        self.assertEqual(response.json()["status"], "failed")
+        self.assertContains(self.client.get(response.json()["batch_url"]), "文件未保存")
 
     def test_upload_rejects_forged_path_and_mismatched_project(self):
         for paths, groups in ((["../a.txt"], [self.group.pk]), (["a.txt"], [self.other.pk]), (["wrong.txt"], [self.group.pk])):
